@@ -1,32 +1,21 @@
 import math
 import matplotlib.pyplot as plt
 import streamlit as st
-from openai import OpenAI
 
 # Konfiguracja strony
 st.set_page_config(
-    page_title="Inteligentny Pozycjoner Siłowników Bramowych (AI)",
+    page_title="Kalkulator i Pozycjoner Siłowników Bramowych",
     page_icon="🚪",
     layout="centered",
 )
 
-st.title("🚪 Inteligentny Pozycjoner Siłowników (z AI)")
+st.title("🚪 Pozycjoner Siłowników Bramowych")
 st.markdown(
-    "Wpisz nazwę *dowolnego* siłownika na rynku, a AI pobierze jego parametry w"
-    " locie i wyliczy punkty montażowe!"
+    "Wpisz model siłownika, jego wymiary całkowite (od osi do osi otworów"
+    " mocujących) oraz geometrię słupka – program wyliczy punkty montażowe."
 )
 
-# Panel boczny: Klucz API oraz konfiguracja AI
-st.sidebar.header("🔑 Konfiguracja AI")
-api_key = st.sidebar.text_input(
-    "Klucz API (np. OpenAI / DeepSeek / Gemini)",
-    type="password",
-    help=(
-        "Wprowadź swój klucz API, aby aplikacja mogła odpytywać model o"
-        " parametry siłownika."
-    ),
-)
-
+# Panel boczny: Geometria słupka i zawiasu
 st.sidebar.header("1. Geometria słupka i zawiasu")
 szer_slupka = st.sidebar.number_input(
     "Szerokość/grubość słupka [mm]", 40, 600, 100, 10
@@ -38,71 +27,28 @@ odl_zawiasu_od_krawedzi = st.sidebar.number_input(
     "Odległość osi zawiasu od krawędzi (wzdłuż bramy) [mm]", 0, 400, 50, 5
 )
 
-st.sidebar.header("2. Wyszukiwanie siłownika przez AI")
+# Panel boczny: Model i parametry siłownika
+st.sidebar.header("2. Model i wymiary siłownika")
 nazwa_modelu = st.sidebar.text_input(
-    "Wpisz dokładny model siłownika:", value="Faac 414"
+    "Nazwa / Model siłownika:", value="Mój siłownik liniowy"
 )
 
-# Domyślne wartości na wypadek braku klucza
-L_min_domyslne = 855
-skok_domyslny = 400
-
-# Przycisk zapytania do AI
-if st.sidebar.button("🤖 Pobierz parametry z AI"):
-  if not api_key:
-    st.sidebar.error("Wprowadź klucz API na górze panelu bocznego!")
-  else:
-    try:
-      client = OpenAI(
-          api_key=api_key, base_url="https://api.openai.com/v1"
-      )  # Można zmienić base_url pod inne API
-      prompt = (
-          f"Podaj parametry techniczne siłownika do bram skrzydłowych:"
-          f" '{nazwa_modelu}'. Zwróć odpowiedź WYŁĄCZNIE w formacie JSON z"
-          ' dwoma kluczami liczbowymi: "L_min" (długość minimalna w stanie'
-          ' złożonym w milimetrach) oraz "skok" (skok tłoka w milimetrach).'
-          " Żadnego dodatkowego tekstu."
-      )
-
-      response = client.chat.completions.create(
-          model="gpt-4o-mini",
-          messages=[{
-              "role": "user",
-              "content": prompt,
-          }],
-          temperature=0,
-      )
-      import json
-
-      odpowiedz_tekst = response.choices[0].message.content.strip()
-      # Czyszczenie ewentualnych znaczników markdown
-      odpowiedz_tekst = (
-          odpowiedz_tekst.replace("```json", "").replace("```", "").strip()
-      )
-      dane_ai = json.loads(odpowiedz_tekst)
-
-      st.session_state["L_min"] = int(dane_ai["L_min"])
-      st.session_state["skok"] = int(dane_ai["skok"])
-      st.sidebar.success(
-          f"Pomyślnie pobrano dla {nazwa_modelu}:\n- L_min:"
-          f" {dane_ai['L_min']}mm\n- Skok: {dane_ai['skok']}mm"
-      )
-    except Exception as e:
-      st.sidebar.error(f"Błąd zapytania do AI: {e}")
-
-# Pobranie wartości ze stanu sesji lub użycie domyślnych
+st.sidebar.markdown(
+    "*(Wymiary mierzone od środka otworów mocujących/uchwytów)*"
+)
 L_min = st.sidebar.number_input(
-    "Długość min. ($L_{min}$) [mm]",
-    300,
-    2000,
-    st.session_state.get("L_min", L_min_domyslne),
-    10,
+    "Całkowita dł. min. ($L_{min}$ - złożony) [mm]", 300, 2000, 750, 10
 )
 skok = st.sidebar.number_input(
-    "Skok tłoka [mm]", 100, 1000, st.session_state.get("skok", skok_domyslny), 10
+    "Skok tłoka siłownika [mm]", 100, 1000, 400, 10
 )
 
 L_max = L_min + skok
+st.sidebar.info(
+    f"Model: **{nazwa_modelu}**\n- Dł. złożonego: **{L_min} mm**\n- Skok:"
+    f" **{skok} mm**\n- Dł. rozłożonego ($L_{max}$): **{L_max} mm**"
+)
+
 kat_otwarcia = st.sidebar.slider("Docelowy kąt otwarcia [°]", 80, 130, 90, 1)
 szerokosc_skrzydla = 1800
 
@@ -138,7 +84,7 @@ rzeczywista_L_min = math.sqrt(
 x_skrz_otw_moc = B * math.cos(alpha)
 y_skrz_otw_moc = B * math.sin(alpha)
 rzeczywista_L_max = math.sqrt(
-    (x_skrz_otw_moc - x_slup_moc) ** 2 + (y_skrzydlo_zamk_moc - y_slup_moc) ** 2
+    (x_skrz_otw_moc - x_slup_moc) ** 2 + (y_skrz_otw_moc - y_slup_moc) ** 2
 )
 
 # Wyniki tekstowe
@@ -199,7 +145,7 @@ ax.plot(
     linestyle=":",
     linewidth=2,
     zorder=4,
-    label=f"{nazwa_modelu} (złożony)",
+    label=f"{nazwa_modelu} (złożony {rzeczywista_L_min:.0f}mm)",
 )
 ax.plot(
     [x_slup_moc, x_skrz_otw_moc],
@@ -207,7 +153,7 @@ ax.plot(
     color="orange",
     linewidth=2,
     zorder=4,
-    label=f"{nazwa_modelu} (rozłożony)",
+    label=f"{nazwa_modelu} (rozłożony {rzeczywista_L_max:.0f}mm)",
 )
 
 # 5. Zawias
@@ -266,4 +212,11 @@ maks_zasięg = max(szerokosc_skrzydla * 0.5, A + 100, B + 100)
 ax.set_xlim(slup_x - 100, maks_zasięg)
 ax.set_ylim(slup_y - 100, maks_zasięg)
 
+ax.legend(
+    loc="upper right",
+    fontsize=9,
+    frameon=True,
+    facecolor="white",
+    edgecolor="none",
+)
 st.pyplot(fig)
