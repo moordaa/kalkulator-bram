@@ -1,0 +1,1 @@
+Kalkulator geometrii siłowników bramowych
