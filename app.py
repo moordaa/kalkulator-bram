@@ -1,21 +1,32 @@
 import math
 import matplotlib.pyplot as plt
 import streamlit as st
+from openai import OpenAI
 
 # Konfiguracja strony
 st.set_page_config(
-    page_title="Kalkulator i Pozycjoner Siłowników Bramowych",
+    page_title="Inteligentny Pozycjoner Siłowników Bramowych (AI)",
     page_icon="🚪",
     layout="centered",
 )
 
-st.title("🚪 Pozycjoner Siłowników Bramowych")
+st.title("🚪 Inteligentny Pozycjoner Siłowników (z AI)")
 st.markdown(
-    "Wybierz model siłownika z bazy (lub podaj własne wymiary) oraz geometrię"
-    " słupka – program wyliczy punkty montażowe."
+    "Wpisz nazwę *dowolnego* siłownika na rynku, a AI pobierze jego parametry w"
+    " locie i wyliczy punkty montażowe!"
 )
 
-# Panel boczny: Geometria słupka i zawiasu
+# Panel boczny: Klucz API oraz konfiguracja AI
+st.sidebar.header("🔑 Konfiguracja AI")
+api_key = st.sidebar.text_input(
+    "Klucz API (np. OpenAI / DeepSeek / Gemini)",
+    type="password",
+    help=(
+        "Wprowadź swój klucz API, aby aplikacja mogła odpytywać model o"
+        " parametry siłownika."
+    ),
+)
+
 st.sidebar.header("1. Geometria słupka i zawiasu")
 szer_slupka = st.sidebar.number_input(
     "Szerokość/grubość słupka [mm]", 40, 600, 100, 10
@@ -27,44 +38,71 @@ odl_zawiasu_od_krawedzi = st.sidebar.number_input(
     "Odległość osi zawiasu od krawędzi (wzdłuż bramy) [mm]", 0, 400, 50, 5
 )
 
-# Panel boczny: Wybór modelu z bazy lub ręcznie
-st.sidebar.header("2. Model siłownika")
-
-baza_modeli = {
-    "Nice Wingo 4000 / 4024 (Skok 400)": {"L_min": 740, "skok": 400},
-    "Nice Wingo 5000 / 5024 (Skok 510)": {"L_min": 980, "skok": 510},
-    "Nice Toona 4016 / 4024 (Skok 400)": {"L_min": 820, "skok": 400},
-    "Came Krono 310 / 300 (Skok 340)": {"L_min": 690, "skok": 340},
-    "Came Fast (Skok 350)": {"L_min": 600, "skok": 350},
-    "Faac 414 (Skok 400)": {"L_min": 855, "skok": 400},
-    "Faac 413 (Skok 400)": {"L_min": 770, "skok": 400},
-    "Beninca Bill 30 (Skok 380)": {"L_min": 700, "skok": 380},
-    "Beninca Bill 40 (Skok 400)": {"L_min": 780, "skok": 400},
-    "Somfy Ixengo S (Skok 400)": {"L_min": 700, "skok": 400},
-    "Inny model (wpisz wymiary ręcznie)": {"L_min": 750, "skok": 400},
-}
-
-wybrany_model = st.sidebar.selectbox("Wybierz model siłownika:", list(baza_modeli.keys()))
-
-if wybrany_model == "Inny model (wpisz wymiary ręcznie)":
-  nazwa_modelu = st.sidebar.text_input("Wpisz nazwę swojego modelu:", value="Nietypowy")
-  L_min = st.sidebar.number_input(
-      "Długość min. siłownika ($L_{min}$ - złożony) [mm]", 300, 2000, 750, 10
-  )
-  skok = st.sidebar.number_input(
-      "Skok tłoka siłownika [mm]", 100, 1000, 400, 10
-  )
-else:
-  nazwa_modelu = wybrany_model
-  L_min = baza_modeli[wybrany_model]["L_min"]
-  skok = baza_modeli[wybrany_model]["skok"]
-
-L_max = L_min + skok
-st.sidebar.info(
-    f"Parametry:\n- L min (złożony): **{L_min} mm**\n- Skok: **{skok}"
-    f" mm**\n- L max (rozłożony): **{L_max} mm**"
+st.sidebar.header("2. Wyszukiwanie siłownika przez AI")
+nazwa_modelu = st.sidebar.text_input(
+    "Wpisz dokładny model siłownika:", value="Faac 414"
 )
 
+# Domyślne wartości na wypadek braku klucza
+L_min_domyslne = 855
+skok_domyslny = 400
+
+# Przycisk zapytania do AI
+if st.sidebar.button("🤖 Pobierz parametry z AI"):
+  if not api_key:
+    st.sidebar.error("Wprowadź klucz API na górze panelu bocznego!")
+  else:
+    try:
+      client = OpenAI(
+          api_key=api_key, base_url="https://api.openai.com/v1"
+      )  # Można zmienić base_url pod inne API
+      prompt = (
+          f"Podaj parametry techniczne siłownika do bram skrzydłowych:"
+          f" '{nazwa_modelu}'. Zwróć odpowiedź WYŁĄCZNIE w formacie JSON z"
+          ' dwoma kluczami liczbowymi: "L_min" (długość minimalna w stanie'
+          ' złożonym w milimetrach) oraz "skok" (skok tłoka w milimetrach).'
+          " Żadnego dodatkowego tekstu."
+      )
+
+      response = client.chat.completions.create(
+          model="gpt-4o-mini",
+          messages=[{
+              "role": "user",
+              "content": prompt,
+          }],
+          temperature=0,
+      )
+      import json
+
+      odpowiedz_tekst = response.choices[0].message.content.strip()
+      # Czyszczenie ewentualnych znaczników markdown
+      odpowiedz_tekst = (
+          odpowiedz_tekst.replace("```json", "").replace("```", "").strip()
+      )
+      dane_ai = json.loads(odpowiedz_tekst)
+
+      st.session_state["L_min"] = int(dane_ai["L_min"])
+      st.session_state["skok"] = int(dane_ai["skok"])
+      st.sidebar.success(
+          f"Pomyślnie pobrano dla {nazwa_modelu}:\n- L_min:"
+          f" {dane_ai['L_min']}mm\n- Skok: {dane_ai['skok']}mm"
+      )
+    except Exception as e:
+      st.sidebar.error(f"Błąd zapytania do AI: {e}")
+
+# Pobranie wartości ze stanu sesji lub użycie domyślnych
+L_min = st.sidebar.number_input(
+    "Długość min. ($L_{min}$) [mm]",
+    300,
+    2000,
+    st.session_state.get("L_min", L_min_domyslne),
+    10,
+)
+skok = st.sidebar.number_input(
+    "Skok tłoka [mm]", 100, 1000, st.session_state.get("skok", skok_domyslny), 10
+)
+
+L_max = L_min + skok
 kat_otwarcia = st.sidebar.slider("Docelowy kąt otwarcia [°]", 80, 130, 90, 1)
 szerokosc_skrzydla = 1800
 
@@ -104,7 +142,7 @@ rzeczywista_L_max = math.sqrt(
 )
 
 # Wyniki tekstowe
-st.subheader(f"📊 Wyniki doboru dla: {nazwa_modelu}")
+st.subheader(f"📊 Wyniki doboru dla modelu: {nazwa_modelu}")
 col1, col2, col3 = st.columns(3)
 col1.metric("Wymiar A (Słupek)", f"{A} mm")
 col2.metric("Wymiar B (Skrzydło)", f"{B} mm")
@@ -161,7 +199,7 @@ ax.plot(
     linestyle=":",
     linewidth=2,
     zorder=4,
-    label="Siłownik złożony",
+    label=f"{nazwa_modelu} (złożony)",
 )
 ax.plot(
     [x_slup_moc, x_skrz_otw_moc],
@@ -169,7 +207,7 @@ ax.plot(
     color="orange",
     linewidth=2,
     zorder=4,
-    label="Siłownik rozłożony",
+    label=f"{nazwa_modelu} (rozłożony)",
 )
 
 # 5. Zawias
