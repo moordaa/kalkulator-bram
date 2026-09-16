@@ -14,21 +14,21 @@ st.markdown(
     "Praktyczny szkic montażowy i kalkulator skoku dla bram skrzydłowych."
 )
 
-# Panel boczny z parametrami wejściowymi
+# Panel boczny z parametrami wejściowymi (szerokość słupka zwiększona do 500 mm)
 st.sidebar.header("Wymiary montażowe")
 
 szer_slupka_x = st.sidebar.slider(
-    "Szerokość słupka wzdłuż bramy [mm]", 50, 300, 100, 10
+    "Szerokość słupka wzdłuż bramy [mm]", 50, 500, 100, 10
 )
 szer_slupka_y = st.sidebar.slider(
-    "Grubość słupka w głąb posesji [mm]", 50, 300, 100, 10
+    "Grubość słupka w głąb posesji [mm]", 50, 500, 100, 10
 )
 
 A = st.sidebar.slider(
-    "Wymiar A (od zawiasu do mocowania na słupku) [mm]", 50, 300, 150, 5
+    "Wymiar A (od zawiasu do mocowania na słupku) [mm]", 50, 500, 150, 5
 )
 B = st.sidebar.slider(
-    "Wymiar B (od zawiasu do mocowania na skrzydle) [mm]", 50, 300, 150, 5
+    "Wymiar B (od zawiasu do mocowania na skrzydle) [mm]", 50, 400, 150, 5
 )
 
 szerokosc_skrzydla = st.sidebar.slider(
@@ -37,15 +37,12 @@ szerokosc_skrzydla = st.sidebar.slider(
 kat_otwarcia = st.sidebar.slider("Kąt otwarcia bramy [°]", 80, 130, 90, 1)
 
 skok_sirownika_katalogowy = st.sidebar.number_input(
-    "Skok Twojego siłownika (opcja) [mm]", 0, 600, 400, 10
+    "Skok Twojego siłownika (opcja) [mm]", 0, 800, 400, 10
 )
 
 # Obliczenia trygonometryczne
 alpha = math.radians(kat_otwarcia)
 
-# Geometria: zawias w punkcie (0,0)
-# Słupek prostokątny narysujemy w ujemnych X lub odpowiedniej strefie
-# Mocowanie na słupku w osi Y (w głąb posesji): (0, A)
 x_slup_moc, y_slup_moc = 0, A
 x_skrzydlo_zamk_moc, y_skrzydlo_zamk_moc = B, 0
 
@@ -92,8 +89,7 @@ st.subheader("📐 Szkic montażowy (Widok z góry)")
 
 fig, ax = plt.subplots(figsize=(8, 8))
 
-# 1. Rysowanie słupka (prostokąt w narożniku)
-# Słupek stoi np. od x = -szer_slupka_x do 0, oraz y od -szer_slupka_y/2 do szer_slupka_y/2 + A
+# 1. Rysowanie słupka
 slup = plt.Rectangle(
     (-szer_slupka_x, -szer_slupka_y / 2),
     szer_slupka_x,
@@ -106,7 +102,7 @@ slup = plt.Rectangle(
 )
 ax.add_patch(slup)
 
-# 2. Skrzydło bramy w pozycji ZAMKNIĘTEJ (szara linia przerywana)
+# 2. Skrzydło zamknięte
 ax.plot(
     [0, szerokosc_skrzydla],
     [0, 0],
@@ -117,7 +113,7 @@ ax.plot(
     zorder=3,
 )
 
-# 3. Skrzydło bramy w pozycji OTWARTЕJ (mocna niebieska linia)
+# 3. Skrzydło otwarte
 ax.plot(
     [0, x_koniec_skrzydla_otw],
     [0, y_koniec_skrzydla_otw],
@@ -127,7 +123,7 @@ ax.plot(
     zorder=3,
 )
 
-# 4. Siłownik w stanie ZAMKNIĘTYM (pomarańczowa linia)
+# 4. Siłownik zamknięty
 ax.plot(
     [x_slup_moc, x_skrzydlo_zamk_moc],
     [y_slup_moc, y_skrzydlo_zamk_moc],
@@ -138,7 +134,7 @@ ax.plot(
     zorder=4,
 )
 
-# 5. Siłownik w stanie OTWARTYM (czerwona linia ciągła)
+# 5. Siłownik otwarty
 ax.plot(
     [x_slup_moc, x_skrzydlo_otw_moc],
     [y_slup_moc, y_skrzydlo_otw_moc],
@@ -148,7 +144,7 @@ ax.plot(
     zorder=4,
 )
 
-# 6. Punkty kluczowe (Zawias, Mocowania)
+# 6. Punkty kluczowe
 ax.scatter(
     [0],
     [0],
@@ -177,7 +173,7 @@ ax.scatter(
     marker="s",
 )
 
-# Opisy bezpośrednio na rysunku dla przejrzystości
+# Opisy
 ax.text(
     -szer_slupka_x / 2,
     0,
@@ -199,16 +195,13 @@ ax.text(
     va="center",
 )
 
-# Czyszczenie wyglądu wykresu, żeby przypominał czysty rysunek techniczny (bez siatek i osi)
 ax.set_aspect("equal")
-ax.axis("off")  # Całkowite wyłączenie osi X i Y, żeby wyglądało jak szkic odręczny/CAD
+ax.axis("off")
 
-# Marginesy dopasowane do geometrii
-maks_zasięg = max(szerokosc_skrzydla * 0.6, A + 150, B + 150)
+maks_zasięg = max(szerokosc_skrzydla * 0.6, A + 150, B + 150, szer_slupka_x)
 ax.set_xlim(-szer_slupka_x - 100, maks_zasięg)
-ax.set_ylim(-szer_slupka_y - 100, maks_zasięg)
+ax.set_ylim(-max(szer_slupka_y, 100) - 100, maks_zasięg)
 
-# Legenda na górze z boku
 ax.legend(
     loc="upper right",
     fontsize=10,
