@@ -11,8 +11,8 @@ st.set_page_config(
 
 st.title("🚪 Pozycjoner Siłowników Bramowych")
 st.markdown(
-    "Wpisz parametry swojego siłownika (z instrukcji lub pomiaru) oraz"
-    " geometrię słupka – program precyzyjnie wyliczy punkty montażowe A i B."
+    "Wpisz nazwę swojego siłownika, jego parametry oraz geometrię słupka –"
+    " program wyliczy punkty montażowe."
 )
 
 # Panel boczny: Geometria słupka i zawiasu
@@ -27,11 +27,11 @@ odl_zawiasu_od_krawedzi = st.sidebar.number_input(
     "Odległość osi zawiasu od krawędzi (wzdłuż bramy) [mm]", 0, 400, 50, 5
 )
 
-# Panel boczny: Parametry dowolnego siłownika
-st.sidebar.header("2. Parametry siłownika (z instrukcji)")
-st.sidebar.markdown(
-    "Wpisz wymiary dla **swojego** modelu (mierzone od środka otworów"
-    " mocujących):"
+# Panel boczny: Nazwa modelu i parametry siłownika
+st.sidebar.header("2. Model i parametry siłownika")
+nazwa_modelu = st.sidebar.text_input(
+    "Nazwa / Model siłownika (np. Faac 414, Nice, itp.):",
+    value="Mój siłownik",
 )
 
 L_min = st.sidebar.number_input(
@@ -43,7 +43,8 @@ skok = st.sidebar.number_input(
 
 L_max = L_min + skok
 st.sidebar.info(
-    f"Wyliczona długość maksymalna ($L_{max}$ - rozłożony): **{L_max} mm**"
+    f"Model: **{nazwa_modelu}**\n- Wyliczona długość max ($L_{max}$): **{L_max}"
+    " mm**"
 )
 
 kat_otwarcia = st.sidebar.slider("Docelowy kąt otwarcia [°]", 80, 130, 90, 1)
@@ -55,18 +56,13 @@ najlepsze_A = 150
 najlepsze_B = 150
 min_blad = float("inf")
 
-# Szukamy geometrii dopasowanej do podanych parametrów siłownika
 for test_A in range(50, 500, 2):
   for test_B in range(50, 500, 2):
-    # Długość w stanie zamkniętym (0°)
     d_zamk = math.sqrt(test_B**2 + test_A**2)
-
-    # Długość w stanie otwartym (kąt_otwarcia)
     x_skrz_otw = test_B * math.cos(alpha)
     y_skrz_otw = test_B * math.sin(alpha)
     d_otw = math.sqrt((x_skrz_otw - 0) ** 2 + (y_skrz_otw - test_A) ** 2)
 
-    # Błąd dopasowania do L_min oraz L_max
     blad = abs(d_zamk - L_min) * 1.5 + abs(d_otw - L_max) * 1.5
     if blad < min_blad:
       min_blad = blad
@@ -90,7 +86,7 @@ rzeczywista_L_max = math.sqrt(
 )
 
 # Wyniki tekstowe
-st.subheader("📊 Wyniki doboru montażowego")
+st.subheader(f"📊 Wyniki doboru dla modelu: {nazwa_modelu}")
 col1, col2, col3 = st.columns(3)
 col1.metric("Wymiar A (Słupek)", f"{A} mm")
 col2.metric("Wymiar B (Skrzydło)", f"{B} mm")
@@ -147,7 +143,7 @@ ax.plot(
     linestyle=":",
     linewidth=2,
     zorder=4,
-    label="Siłownik złożony",
+    label=f"{nazwa_modelu} (złożony)",
 )
 ax.plot(
     [x_slup_moc, x_skrz_otw_moc],
@@ -155,7 +151,7 @@ ax.plot(
     color="orange",
     linewidth=2,
     zorder=4,
-    label="Siłownik rozłożony",
+    label=f"{nazwa_modelu} (rozłożony)",
 )
 
 # 5. Zawias
