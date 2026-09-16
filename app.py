@@ -11,71 +11,41 @@ st.set_page_config(
 
 st.title("🚪 Pozycjoner Siłowników Bramowych")
 st.markdown(
-    "Wpisz model siłownika, parametry słupka i zawiasu – program wyliczy"
-    " precyzyjne punkty montażowe."
+    "Wpisz parametry swojego siłownika (z instrukcji lub pomiaru) oraz"
+    " geometrię słupka – program precyzyjnie wyliczy punkty montażowe A i B."
 )
 
 # Panel boczny: Geometria słupka i zawiasu
 st.sidebar.header("1. Geometria słupka i zawiasu")
 szer_slupka = st.sidebar.number_input(
-    "Szerokość/grubość słupka [mm]", 40, 500, 100, 10
+    "Szerokość/grubość słupka [mm]", 40, 600, 100, 10
 )
 odl_zawiasu_od_lica = st.sidebar.number_input(
-    "Odległość osi zawiasu od lica słupka [mm]", -100, 300, 30, 5
+    "Odległość osi zawiasu od lica słupka [mm]", -100, 400, 30, 5
 )
 odl_zawiasu_od_krawedzi = st.sidebar.number_input(
-    "Odległość osi zawiasu od krawędzi (wzdłuż bramy) [mm]", 0, 300, 50, 5
+    "Odległość osi zawiasu od krawędzi (wzdłuż bramy) [mm]", 0, 400, 50, 5
 )
 
-# Panel boczny: Wyszukiwarka modeli siłowników
-st.sidebar.header("2. Wyszukiwanie modelu siłownika")
-
-# Rozbudowana baza katalogowa popularnych modeli
-katalog_silownikow = {
-    "Nice Wingo 4000 / 4024": {"L_min": 740, "L_max": 1140, "skok": 400},
-    "Nice Wingo 5000 / 5024": {"L_min": 980, "L_max": 1490, "skok": 510},
-    "Nice Toona 4016 / 4024": {"L_min": 820, "L_max": 1220, "skok": 400},
-    "Came Krono 310 / 300": {"L_min": 690, "L_max": 1030, "skok": 340},
-    "Came Fast": {"L_min": 600, "L_max": 950, "skok": 350},
-    "Faac 414": {"L_min": 855, "L_max": 1255, "skok": 400},
-    "Faac 413": {"L_min": 770, "L_max": 1170, "skok": 400},
-    "Beninca Bill 30": {"L_min": 700, "L_max": 1080, "skok": 380},
-    "Beninca Bill 40": {"L_min": 780, "L_max": 1180, "skok": 400},
-    "Somfy Ixengo S": {"L_min": 700, "L_max": 1100, "skok": 400},
-}
-
-szukany_model = st.sidebar.text_input(
-    "Wpisz nazwę siłownika (np. Faac, Nice, Came):", value="Faac 414"
+# Panel boczny: Parametry dowolnego siłownika
+st.sidebar.header("2. Parametry siłownika (z instrukcji)")
+st.sidebar.markdown(
+    "Wpisz wymiary dla **swojego** modelu (mierzone od środka otworów"
+    " mocujących):"
 )
 
-# Dopasowanie na podstawie wpisanej frazy
-dopasowany_silownik = None
-for nazwa, parametry in katalog_silownikow.items():
-  if szukany_model.lower() in nazwa.lower():
-    dopasowany_silownik = nazwa
-    domyslny_L_min = parametry["L_min"]
-    domyslny_L_max = parametry["L_max"]
-    break
+L_min = st.sidebar.number_input(
+    "Długość min. siłownika ($L_{min}$ - złożony) [mm]", 300, 2000, 750, 10
+)
+skok = st.sidebar.number_input(
+    "Skok tłoka siłownika [mm]", 100, 1000, 400, 10
+)
 
-if dopasowany_silownik:
-  st.sidebar.success(
-      f"Znaleziono w bazie: **{dopasowany_silownik}**\n- Skok:"
-      f" **{katalog_silownikow[dopasowany_silownik]['skok']} mm**"
-  )
-  L_min = domyslny_L_min
-  L_max = domyslny_L_max
-else:
-  st.sidebar.warning(
-      "Nie znaleziono w predefiniowanej bazie. Wprowadź wymiary ręcznie:"
-  )
-  L_min = st.sidebar.number_input(
-      "Długość min. siłownika ($L_{min}$) [mm]", 400, 1500, 800, 10
-  )
-  L_max = st.sidebar.number_input(
-      "Długość max. siłownika ($L_{max}$) [mm]", 600, 2000, 1200, 10
-  )
+L_max = L_min + skok
+st.sidebar.info(
+    f"Wyliczona długość maksymalna ($L_{max}$ - rozłożony): **{L_max} mm**"
+)
 
-skok = L_max - L_min
 kat_otwarcia = st.sidebar.slider("Docelowy kąt otwarcia [°]", 80, 130, 90, 1)
 szerokosc_skrzydla = 1800
 
@@ -85,13 +55,18 @@ najlepsze_A = 150
 najlepsze_B = 150
 min_blad = float("inf")
 
-for test_A in range(60, 450, 2):
-  for test_B in range(60, 450, 2):
+# Szukamy geometrii dopasowanej do podanych parametrów siłownika
+for test_A in range(50, 500, 2):
+  for test_B in range(50, 500, 2):
+    # Długość w stanie zamkniętym (0°)
     d_zamk = math.sqrt(test_B**2 + test_A**2)
+
+    # Długość w stanie otwartym (kąt_otwarcia)
     x_skrz_otw = test_B * math.cos(alpha)
     y_skrz_otw = test_B * math.sin(alpha)
     d_otw = math.sqrt((x_skrz_otw - 0) ** 2 + (y_skrz_otw - test_A) ** 2)
 
+    # Błąd dopasowania do L_min oraz L_max
     blad = abs(d_zamk - L_min) * 1.5 + abs(d_otw - L_max) * 1.5
     if blad < min_blad:
       min_blad = blad
@@ -101,7 +76,7 @@ for test_A in range(60, 450, 2):
 A = najlepsze_A
 B = najlepsze_B
 
-# Rzeczywiste wartości wyliczone
+# Rzeczywiste wartości wyliczone dla wybranej konfiguracji
 x_slup_moc, y_slup_moc = 0, A
 x_skrz_zamk_moc, y_skrz_zamk_moc = B, 0
 rzeczywista_L_min = math.sqrt(
