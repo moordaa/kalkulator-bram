@@ -11,12 +11,21 @@ st.set_page_config(
 
 st.title("🚪 Kalkulator Geometrii Siłowników Bramowych")
 st.markdown(
-    "Narzędzie do obliczania wymiarów montażowych ($A$ i $B$), skoku siłownika"
-    " oraz wizualizacji geometrii bramy skrzydłowej."
+    "Narzędzie do precyzyjnego wyznaczania punktów montażowych ($A$ i $B$),"
+    " skoku oraz wizualizacji geometrii bramy skrzydłowej."
 )
 
 # Panel boczny z parametrami wejściowymi
 st.sidebar.header("Parametry montażowe")
+
+szerokosc_slupka = st.sidebar.slider(
+    "Szerokość słupka (profilu) [mm]",
+    min_value=60,
+    max_value=200,
+    value=100,
+    step=10,
+    help="Grubość/szerokość słupka w osi bramy",
+)
 
 A = st.sidebar.slider(
     "Wymiar A (Słupek) [mm]",
@@ -45,7 +54,7 @@ szerokosc_skrzydla = st.sidebar.slider(
     max_value=3000,
     value=2000,
     step=50,
-    help="Całkowita szerokość skrzydła (potrzebna do rysunku)",
+    help="Całkowita szerokość skrzydła",
 )
 
 kat_otwarcia = st.sidebar.slider(
@@ -72,6 +81,9 @@ skok_sirownika_katalogowy = st.sidebar.number_input(
 # Obliczenia trygonometryczne
 alpha = math.radians(kat_otwarcia)
 
+# Współrzędne: zawias w (0,0)
+# Słupek rośnie w ujemne X lub dodatnie Y w zależności od montażu.
+# Przyjmijmy: słupek prostokątny od x = -szerokosc_slupka do 0, y od -szerokosc_slupka do A + 20
 x_slup_moc, y_slup_moc = 0, A
 x_skrzydlo_zamk_moc, y_skrzydlo_zamk_moc = B, 0
 
@@ -114,66 +126,112 @@ if skok_sirownika_katalogowy > 0:
         f" Potrzebujesz min. {skok_wymagany:.1f} mm."
     )
 
-# --- WIZUALIZACJA GRAFICZNA (WYKRES) ---
-st.subheader("📐 Wizualizacja układu (widok z góry)")
+# --- CZYTELNA WIZUALIZACJA GRAFICZNA ---
+st.subheader("📐 Szkic montażowy (widok z góry)")
 
-fig, ax = plt.subplots(figsize=(6, 6))
+fig, ax = plt.subplots(figsize=(8, 8))
 
+# Rysowanie słupka jako prostokąta (np. profil stalowy)
+# Zakładamy słupek kwadratowy o szerokości 'szerokosc_slupka', postawiony w narożniku
+slup_rect = plt.Rectangle(
+    (-szerokosc_slupka, -szerokosc_slupka / 2),
+    szerokosc_slupka,
+    szerokosc_slupka + A,
+    facecolor="#d3d3d3",
+    edgecolor="black",
+    linewidth=1.5,
+    alpha=0.6,
+    label="Słupek bramowy",
+)
+ax.add_patch(slup_rect)
+
+# Skrzydło zamknięte (szara linia przerywana)
 ax.plot(
     [0, szerokosc_skrzydla],
     [0, 0],
     color="gray",
     linestyle="--",
-    linewidth=2,
+    linewidth=3,
     label="Brama zamknięta",
 )
+
+# Skrzydło otwarte (niebieska linia gruba)
 ax.plot(
     [0, x_koniec_skrzydla_otw],
     [0, y_koniec_skrzydla_otw],
-    color="blue",
-    linewidth=3,
+    color="#1f77b4",
+    linewidth=4,
     label=f"Brama otwarta ({kat_otwarcia}°)",
 )
+
+# Siłownik w stanie zamkniętym (pomarańczowa linia przerywana)
 ax.plot(
     [x_slup_moc, x_skrzydlo_zamk_moc],
     [y_slup_moc, y_skrzydlo_zamk_moc],
     color="orange",
     linestyle=":",
-    linewidth=2,
-    label="Siłownik (zamknięty)",
+    linewidth=2.5,
+    label=f"Siłownik zamknięty ({dlugosc_zamkniety:.1f} mm)",
 )
+
+# Siłownik w stanie otwartym (czerwona linia ciągła)
 ax.plot(
     [x_slup_moc, x_skrzydlo_otw_moc],
     [y_slup_moc, y_skrzydlo_otw_moc],
     color="red",
-    linewidth=2,
-    label="Siłownik (otwarty)",
+    linewidth=2.5,
+    label=f"Siłownik otwarty ({dlugosc_otwarty:.1f} mm)",
 )
 
-ax.scatter([0], [0], color="black", s=100, zorder=5, label="Zawias (0,0)")
+# Oznaczenia punktów
+ax.scatter([0], [0], color="black", s=120, zorder=5, label="Oś zawiasu (0,0)")
 ax.scatter(
     [x_slup_moc],
     [y_slup_moc],
     color="green",
-    s=80,
+    s=100,
     zorder=5,
-    label="Mocowanie na słupku",
+    label=f"Mocowanie słupka (A={A}mm)",
 )
 ax.scatter(
     [x_skrzydlo_otw_moc],
     [y_skrzydlo_otw_moc],
     color="purple",
-    s=80,
+    s=100,
     zorder=5,
-    label="Mocowanie na skrzydle",
+    label=f"Mocowanie skrzydła (B={B}mm)",
+)
+
+# Dodanie opisów tekstowych bezpośrednio na wykresie dla jasności
+ax.text(
+    10,
+    A + 10,
+    f"Słupek\n(A = {A} mm)",
+    color="green",
+    fontsize=10,
+    weight="bold",
+)
+ax.text(
+    B / 2,
+    -150,
+    f"Skrzydło\n(B = {B} mm)",
+    color="purple",
+    fontsize=10,
+    weight="bold",
 )
 
 ax.set_aspect("equal")
 ax.grid(True, linestyle=":", alpha=0.6)
-ax.axhline(0, color="black", linewidth=1)
-ax.axvline(0, color="black", linewidth=1)
-ax.set_xlabel("Oś X [mm]")
-ax.set_ylabel("Oś Y [mm]")
-ax.legend(loc="upper right", fontsize=8)
+ax.axhline(0, color="black", linewidth=0.8, alpha=0.5)
+ax.axvline(0, color="black", linewidth=0.8, alpha=0.5)
+
+# Dopasowanie marginesów wykresu, żeby wszystko było widoczne
+maks_zasięg = max(szerokosc_skrzydla * 0.7, A + 100, B + 100)
+ax.set_xlim(-szerokosc_slupka - 50, maks_zasięg)
+ax.set_ylim(-szerokosc_slupka - 100, maks_zasięg)
+
+ax.set_xlabel("Oś X [mm]", fontsize=11)
+ax.set_ylabel("Oś Y (w głąb posesji) [mm]", fontsize=11)
+ax.legend(loc="upper right", fontsize=9, framealpha=0.9)
 
 st.pyplot(fig)
