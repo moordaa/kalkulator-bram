@@ -11,14 +11,13 @@ st.set_page_config(
 
 st.title("🚪 Pozycjoner Siłowników Bramowych")
 st.markdown(
-    "Wpisz model siłownika, jego wymiary całkowite (od osi do osi otworów"
-    " mocujących) oraz geometrię słupka – program wyliczy punkty montażowe."
+    "Precyzyjny kalkulator geometrii montażowej dla bram skrzydłowych."
 )
 
 # Panel boczny: Geometria słupka i zawiasu
 st.sidebar.header("1. Geometria słupka i zawiasu")
 szer_slupka = st.sidebar.number_input(
-    "Szerokość/grubość słupka [mm]", 40, 600, 100, 10
+    "Szerokość/grubość słupka [mm]", 40, 600, 150, 10
 )
 odl_zawiasu_od_lica = st.sidebar.number_input(
     "Odległość osi zawiasu od lica słupka [mm]", -100, 400, 30, 5
@@ -53,13 +52,14 @@ kat_otwarcia = st.sidebar.slider("Docelowy kąt otwarcia [°]", 80, 130, 90, 1)
 szerokosc_skrzydla = 1800
 
 # --- ALGORYTM OPTYMALIZACJI GEOMETRII (A i B) ---
+# Wymiar A zaczynamy od min. 80 mm, żeby mocowanie na słupku nie kolidowało z zawiasem
 alpha = math.radians(kat_otwarcia)
-najlepsze_A = 150
-najlepsze_B = 150
+najlepsze_A = 120
+najlepsze_B = 120
 min_blad = float("inf")
 
-for test_A in range(50, 500, 2):
-  for test_B in range(50, 500, 2):
+for test_A in range(80, 500, 2):
+  for test_B in range(80, 500, 2):
     d_zamk = math.sqrt(test_B**2 + test_A**2)
     x_skrz_otw = test_B * math.cos(alpha)
     y_skrz_otw = test_B * math.sin(alpha)
@@ -162,7 +162,7 @@ zawias = plt.Circle(
 )
 ax.add_patch(zawias)
 
-# 6. Zielone punkty mocowania
+# 6. Zielone punkty mocowania (wyraźnie odsunięte od osi zawiasu (0,0))
 moc_slup = plt.Rectangle(
     (x_slup_moc - 18, y_slup_moc - 18),
     36,
